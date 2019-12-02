@@ -16,6 +16,7 @@ cc_import(
 go_library(
     name = "go_default_library",
     srcs = [
+        "cgo.go",
         "engine.go",
         "errors.go",
         "modules.go",
@@ -23,14 +24,31 @@ go_library(
         "v8engine.go",
         "v8engine.h",
         "value.go",
-    ] + glob([
-        "deps/include/**/*",
-    ]),  # keep
+    ],
     cdeps = select({
         "@io_bazel_rules_go//go/platform:darwin": [":darwin_imported_dylib"],
         "//conditions:default": [":linux_imported_dylib"],
     }),
     cgo = True,
+    clinkopts = [
+        "-pthread -lv8",
+    ] + select({
+        "@io_bazel_rules_go//go/platform:android": [
+            "-Lpkg/v8engine/deps/linux-x86_64",
+        ],
+        "@io_bazel_rules_go//go/platform:darwin": [
+            "-Lpkg/v8engine/deps/darwin-x86_64",
+        ],
+        "@io_bazel_rules_go//go/platform:ios": [
+            "-Lpkg/v8engine/deps/darwin-x86_64",
+        ],
+        "@io_bazel_rules_go//go/platform:linux": [
+            "-Lpkg/v8engine/deps/linux-x86_64",
+        ],
+        "//conditions:default": [],
+    }),
+    copts = [],  # keep
+    cxxopts = ["-fno-rtti -fpic -Ipkg/v8engine/deps/include -std=c++14"],
     importpath = "github.com/BlazerodJS/blazerod/pkg/v8engine",
     visibility = ["//visibility:public"],
 )

@@ -2,4 +2,5 @@
 /bazel-*
 /blazerod
 
+.vscode
 node_modules
