@@ -202,8 +202,23 @@ MaybeLocal<Module> ResolveCallback(Local<Context> context,
                                    Local<String> specifier,
                                    Local<Module> referrer) {
   Isolate* isolate = Isolate::GetCurrent();
+  m_ctx* ctx = (m_ctx*)isolate->GetData(0);
 
-  return MaybeLocal<Module>();
+  HandleScope handle_scope(isolate);
+
+  String::Utf8Value str(isolate, specifier);
+  const char* moduleName = *str;
+
+  if (ctx->resolved.count(referrer->GetIdentityHash()) == 0) {
+    return MaybeLocal<Module>();
+  }
+
+  std::map<std::string, Eternal<Module>> localResolve = ctx->resolved[referrer->GetIdentityHash()];
+  if (localResolve.count(moduleName) == 0) {
+    return MaybeLocal<Module>();
+  }
+
+  return localResolve[moduleName].Get(isolate);
 }
 
 int LoadModule(ContextPtr ptr,
@@ -278,7 +293,7 @@ int LoadModule(ContextPtr ptr,
 
   Maybe<bool> ok = module->InstantiateModule(context, ResolveCallback);
   if (!ok.FromMaybe(false)) {
-    return 2;
+    return 3;
   }
 
   MaybeLocal<Value> result = module->Evaluate(context);
@@ -287,7 +302,7 @@ int LoadModule(ContextPtr ptr,
     assert(try_catch.HasCaught());
     auto err = ExceptionError(try_catch, isolate, context);
     printf("%s\n", err.msg);
-    return 3;
+    return 4;
   }
 
   return 0;

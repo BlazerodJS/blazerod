@@ -6,6 +6,7 @@ go_library(
     importpath = "github.com/BlazerodJS/blazerod/cmd/blaze",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/resolver:go_default_library",
         "//pkg/v8engine:go_default_library",
         "//pkg/version:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
