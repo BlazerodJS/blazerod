@@ -22,12 +22,8 @@ typedef struct {
 // Initialize V8
 extern void InitV8();
 
-// Isolates
-extern IsolatePtr NewIsolate();
-extern void DisposeIsolate(IsolatePtr isolate);
-
 // Contexts
-extern ContextPtr NewContext(IsolatePtr isolate);
+extern ContextPtr NewContext();
 extern RtnValue Run(ContextPtr context, const char* source, const char* origin);
 extern int LoadModule(ContextPtr ptr,
                       char* source_s,

@@ -14,7 +14,6 @@ var v8init sync.Once
 
 // Engine is a standalone instance of the V8 engine (isolate + context)
 type Engine struct {
-	isolatePtr C.IsolatePtr
 	contextPtr C.ContextPtr
 }
 
@@ -24,11 +23,9 @@ func NewEngine() *Engine {
 		C.InitV8()
 	})
 
-	isolatePtr := C.NewIsolate()
-	contextPtr := C.NewContext(isolatePtr)
+	contextPtr := C.NewContext()
 
 	engine := &Engine{
-		isolatePtr: isolatePtr,
 		contextPtr: contextPtr,
 	}
 
@@ -75,9 +72,6 @@ func (e *Engine) LoadModule(source string, origin string, resolve ModuleResolver
 func (e *Engine) finalizer() {
 	C.DisposeContext(e.contextPtr)
 	e.contextPtr = nil
-
-	C.DisposeIsolate(e.isolatePtr)
-	e.isolatePtr = nil
 
 	runtime.SetFinalizer(e, nil)
 }

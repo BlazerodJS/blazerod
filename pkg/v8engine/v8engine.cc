@@ -129,27 +129,13 @@ void InitV8() {
   V8::Initialize();
 }
 
-// Isolates
-
-IsolatePtr NewIsolate() {
-  Isolate::CreateParams params;
-  params.array_buffer_allocator = defaultAllocator;
-  return static_cast<IsolatePtr>(Isolate::New(params));
-}
-
-void DisposeIsolate(IsolatePtr ptr) {
-  if (ptr == nullptr) {
-    return;
-  }
-
-  Isolate* iso = static_cast<Isolate*>(ptr);
-  iso->Dispose();
-}
-
 // Contexts
 
-ContextPtr NewContext(IsolatePtr ptr) {
-  Isolate* isolate = static_cast<Isolate*>(ptr);
+ContextPtr NewContext() {
+  Isolate::CreateParams params;
+  params.array_buffer_allocator = defaultAllocator;
+  Isolate* isolate = Isolate::New(params);
+
   Locker locker(isolate);
   Isolate::Scope isolate_scope(isolate);
   HandleScope handle_scope(isolate);
@@ -167,6 +153,7 @@ ContextPtr NewContext(IsolatePtr ptr) {
   m_ctx* ctx = new m_ctx;
   ctx->ptr.Reset(isolate, Context::New(isolate, NULL, global));
   ctx->isolate = isolate;
+  isolate->SetData(0, ctx);
   return static_cast<ContextPtr>(ctx);
 }
 
@@ -316,6 +303,7 @@ void DisposeContext(ContextPtr ptr) {
   Locker locker(isolate);
   Isolate::Scope isolate_scope(isolate);
   ctx->ptr.Reset();
+  isolate->Dispose();
   delete ctx;
 }
 
