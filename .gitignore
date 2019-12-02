@@ -1,3 +1,5 @@
-/blazerod
-node_modules
+/_obj
 /bazel-*
+/blazerod
+
+node_modules
