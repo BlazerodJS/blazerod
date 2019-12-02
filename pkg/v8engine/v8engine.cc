@@ -1,0 +1,264 @@
+#include "v8engine.h"
+
+#include "v8.h"
+
+#include "libplatform/libplatform.h"
+
+#include <stdio.h>
+#include <cstdlib>
+#include <cstring>
+#include <sstream>
+#include <string>
+
+using namespace v8;
+
+auto defaultAllocator = ArrayBuffer::Allocator::NewDefaultAllocator();
+auto defaultPlatform = platform::NewDefaultPlatform();
+
+typedef struct {
+  Persistent<Context> ptr;
+  Isolate* isolate;
+} m_ctx;
+
+typedef struct {
+  Persistent<Value> ptr;
+  m_ctx* context;
+} m_value;
+
+// Utils
+
+const char* CopyString(std::string str) {
+  int len = str.length();
+  char* mem = (char*)malloc(len + 1);
+  memcpy(mem, str.data(), len);
+  mem[len] = 0;
+  return mem;
+}
+
+const char* CopyString(String::Utf8Value& value) {
+  if (value.length() == 0) {
+    return nullptr;
+  }
+  return CopyString(*value);
+}
+
+// Runtime
+
+void Fprint(FILE* out, const FunctionCallbackInfo<Value>& args) {
+  bool first = true;
+  for (int i = 0; i < args.Length(); i++) {
+    Isolate* isolate = args.GetIsolate();
+    HandleScope handle_scope(isolate);
+    if (first) {
+      first = false;
+    } else {
+      fprintf(out, " ");
+    }
+    String::Utf8Value str(isolate, args[i]);
+    const char* cstr = CopyString(str);
+    fprintf(out, "%s", cstr);
+  }
+  fprintf(out, "\n");
+  fflush(out);
+}
+
+void Print(const FunctionCallbackInfo<Value>& args) {
+  Fprint(stdout, args);
+}
+
+void Log(const FunctionCallbackInfo<Value>& args) {
+  Fprint(stderr, args);
+}
+
+// Errors
+
+RtnError ExceptionError(TryCatch& try_catch,
+                        Isolate* isolate,
+                        Local<Context> context) {
+  Locker locker(isolate);
+  Isolate::Scope isolate_scope(isolate);
+  HandleScope handle_scope(isolate);
+
+  RtnError rtn = {nullptr, nullptr, nullptr};
+
+  if (try_catch.HasTerminated()) {
+    rtn.msg =
+        CopyString("ExecutionTerminated: script execution has been terminated");
+    return rtn;
+  }
+
+  String::Utf8Value exception(isolate, try_catch.Exception());
+  rtn.msg = CopyString(exception);
+
+  Local<Message> msg = try_catch.Message();
+  if (!msg.IsEmpty()) {
+    String::Utf8Value origin(isolate, msg->GetScriptOrigin().ResourceName());
+    std::ostringstream sb;
+    sb << *origin;
+    Maybe<int> line = try_catch.Message()->GetLineNumber(context);
+    if (line.IsJust()) {
+      sb << ":" << line.ToChecked();
+    }
+    Maybe<int> start = try_catch.Message()->GetStartColumn(context);
+    if (start.IsJust()) {
+      sb << ":"
+         << start.ToChecked() + 1;  // + 1 to match output from stack trace
+    }
+    rtn.location = CopyString(sb.str());
+  }
+
+  MaybeLocal<Value> mstack = try_catch.StackTrace(context);
+  if (!mstack.IsEmpty()) {
+    String::Utf8Value stack(isolate, mstack.ToLocalChecked());
+    rtn.stack = CopyString(stack);
+  }
+
+  return rtn;
+}
+
+// Initialize V8
+
+void InitV8() {
+  V8::InitializePlatform(defaultPlatform.get());
+  V8::Initialize();
+}
+
+// Isolates
+
+IsolatePtr NewIsolate() {
+  Isolate::CreateParams params;
+  params.array_buffer_allocator = defaultAllocator;
+  return static_cast<IsolatePtr>(Isolate::New(params));
+}
+
+void DisposeIsolate(IsolatePtr ptr) {
+  if (ptr == nullptr) {
+    return;
+  }
+
+  Isolate* iso = static_cast<Isolate*>(ptr);
+  iso->Dispose();
+}
+
+// Contexts
+
+ContextPtr NewContext(IsolatePtr ptr) {
+  Isolate* isolate = static_cast<Isolate*>(ptr);
+  Locker locker(isolate);
+  Isolate::Scope isolate_scope(isolate);
+  HandleScope handle_scope(isolate);
+
+  isolate->SetCaptureStackTraceForUncaughtExceptions(true);
+
+  Local<ObjectTemplate> global = ObjectTemplate::New(isolate);
+  Local<ObjectTemplate> v8engine = ObjectTemplate::New(isolate);
+
+  global->Set(isolate, "V8Engine", v8engine);
+
+  v8engine->Set(isolate, "print", FunctionTemplate::New(isolate, Print));
+  v8engine->Set(isolate, "log", FunctionTemplate::New(isolate, Log));
+
+  m_ctx* ctx = new m_ctx;
+  ctx->ptr.Reset(isolate, Context::New(isolate, NULL, global));
+  ctx->isolate = isolate;
+  return static_cast<ContextPtr>(ctx);
+}
+
+RtnValue Run(ContextPtr ptr, const char* source, const char* origin) {
+  m_ctx* ctx = static_cast<m_ctx*>(ptr);
+  Isolate* isolate = ctx->isolate;
+  Locker locker(isolate);
+  Isolate::Scope isolate_scope(isolate);
+  HandleScope handle_scope(isolate);
+  TryCatch try_catch(isolate);
+
+  Local<Context> lContext = ctx->ptr.Get(isolate);
+  Context::Scope context_scope(lContext);
+
+  Local<String> lSource =
+      String::NewFromUtf8(isolate, source, NewStringType::kNormal)
+          .ToLocalChecked();
+  Local<String> lOrigin =
+      String::NewFromUtf8(isolate, source, NewStringType::kNormal)
+          .ToLocalChecked();
+
+  RtnValue rtn = {nullptr};
+
+  ScriptOrigin script_origin(lOrigin);
+  MaybeLocal<Script> script =
+      Script::Compile(lContext, lSource, &script_origin);
+  if (script.IsEmpty()) {
+    rtn.error = ExceptionError(try_catch, isolate, lContext);
+    return rtn;
+  }
+
+  MaybeLocal<v8::Value> result = script.ToLocalChecked()->Run(lContext);
+  if (result.IsEmpty()) {
+    rtn.error = ExceptionError(try_catch, isolate, lContext);
+    return rtn;
+  }
+  m_value* val = new m_value;
+  val->context = ctx;
+  val->ptr.Reset(isolate, Persistent<Value>(isolate, result.ToLocalChecked()));
+
+  rtn.value = static_cast<ValuePtr>(val);
+  return rtn;
+}
+
+void DisposeContext(ContextPtr ptr) {
+  if (ptr == nullptr) {
+    return;
+  }
+
+  m_ctx* ctx = static_cast<m_ctx*>(ptr);
+  Isolate* isolate = ctx->isolate;
+  Locker locker(isolate);
+  Isolate::Scope isolate_scope(isolate);
+  ctx->ptr.Reset();
+  delete ctx;
+}
+
+// Values
+
+const char* ValueToString(ValuePtr ptr) {
+  m_value* val = static_cast<m_value*>(ptr);
+  m_ctx* ctx = val->context;
+  Isolate* isolate = ctx->isolate;
+
+  Locker locker(isolate);
+  Isolate::Scope isolate_scope(isolate);
+  HandleScope handle_scope(isolate);
+  Context::Scope context_scope(ctx->ptr.Get(isolate));
+
+  Local<Value> value = val->ptr.Get(isolate);
+  String::Utf8Value utf8(isolate, value);
+
+  return CopyString(utf8);
+}
+
+void DisposeValue(ValuePtr ptr) {
+  m_value* val = static_cast<m_value*>(ptr);
+
+  if (val == nullptr) {
+    return;
+  }
+
+  m_ctx* ctx = val->context;
+
+  if (ctx == nullptr) {
+    return;
+  }
+
+  Isolate* isolate = ctx->isolate;
+  Locker locker(isolate);
+  Isolate::Scope isolate_scope(isolate);
+
+  val->ptr.Reset();
+  delete val;
+}
+
+// Version
+
+const char* Version() {
+  return V8::GetVersion();
+}

@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "scripts": {
+    "blaze": "bazel run //cmd/blaze:blaze",
+    "build": "bazel //...",
+    "watch": "ibazel build //..."
+  },
+  "devDependencies": {
+    "@bazel/bazel": "^1.2.0",
+    "@bazel/ibazel": "^0.10.3",
+    "prettier": "^1.19.1"
+  }
+}

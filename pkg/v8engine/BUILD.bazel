@@ -1,0 +1,35 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@rules_cc//cc:defs.bzl", "cc_import")
+
+cc_import(
+    name = "darwin_imported_dylib",
+    hdrs = glob(["deps/include/**/*.h"]),
+    static_library = "deps/darwin-x86_64/libv8.a",
+)
+
+cc_import(
+    name = "linux_imported_dylib",
+    hdrs = glob(["deps/include/**/*.h"]),
+    static_library = "deps/linux-x86_64/libv8.a",
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "engine.go",
+        "errors.go",
+        "v8engine.cc",
+        "v8engine.go",
+        "v8engine.h",
+        "value.go",
+    ] + glob([
+        "deps/include/**/*",
+    ]),
+    cdeps = select({
+        "@io_bazel_rules_go//go/platform:darwin": [":darwin_imported_dylib"],
+        "//conditions:default": [":linux_imported_dylib"],
+    }),
+    cgo = True,
+    importpath = "github.com/BlazerodJS/blazerod/pkg/v8engine",
+    visibility = ["//visibility:public"],
+)
