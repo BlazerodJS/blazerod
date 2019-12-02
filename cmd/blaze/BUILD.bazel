@@ -5,7 +5,11 @@ go_library(
     srcs = ["main.go"],
     importpath = "github.com/BlazerodJS/blazerod/cmd/blaze",
     visibility = ["//visibility:private"],
-    deps = ["//pkg/v8engine:go_default_library"],
+    deps = [
+        "//pkg/v8engine:go_default_library",
+        "//pkg/version:go_default_library",
+        "@com_github_spf13_cobra//:go_default_library",
+    ],
 )
 
 go_binary(

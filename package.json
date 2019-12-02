@@ -2,7 +2,7 @@
   "private": true,
   "scripts": {
     "blaze": "bazel run //cmd/blaze:blaze",
-    "build": "bazel //...",
+    "build": "bazel build //...",
     "watch": "ibazel build //..."
   },
   "devDependencies": {

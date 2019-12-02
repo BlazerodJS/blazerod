@@ -24,7 +24,7 @@ go_library(
         "value.go",
     ] + glob([
         "deps/include/**/*",
-    ]),
+    ]),  # keep
     cdeps = select({
         "@io_bazel_rules_go//go/platform:darwin": [":darwin_imported_dylib"],
         "//conditions:default": [":linux_imported_dylib"],
