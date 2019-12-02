@@ -48,6 +48,30 @@ func (e *Engine) Run(source string, origin string) (*Value, error) {
 	return getValue(rtn), getError(rtn)
 }
 
+// LoadModule executes a script in the engine, returning the result
+func (e *Engine) LoadModule(source string, origin string, resolve ModuleResolverCallback) int {
+	cSource := C.CString(source)
+	cOrigin := C.CString(origin)
+	defer C.free(unsafe.Pointer(cSource))
+	defer C.free(unsafe.Pointer(cOrigin))
+
+	resolverTableLock.Lock()
+	nextResolverToken++
+	token := nextResolverToken
+	resolverFuncs[token] = resolve
+	resolverTableLock.Unlock()
+
+	cToken := C.int(token)
+
+	rtn := C.LoadModule(e.contextPtr, cSource, cOrigin, cToken)
+
+	resolverTableLock.Lock()
+	delete(resolverFuncs, token)
+	resolverTableLock.Unlock()
+
+	return int(rtn)
+}
+
 func (e *Engine) finalizer() {
 	C.DisposeContext(e.contextPtr)
 	e.contextPtr = nil

@@ -29,6 +29,10 @@ extern void DisposeIsolate(IsolatePtr isolate);
 // Contexts
 extern ContextPtr NewContext(IsolatePtr isolate);
 extern RtnValue Run(ContextPtr context, const char* source, const char* origin);
+extern int LoadModule(ContextPtr ptr,
+                      char* source_s,
+                      char* name_s,
+                      int callback_index);
 extern void DisposeContext(ContextPtr context);
 
 // Values

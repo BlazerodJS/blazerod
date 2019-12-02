@@ -7,8 +7,11 @@
 #include <stdio.h>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <sstream>
 #include <string>
+
+#include "_cgo_export.h"
 
 using namespace v8;
 
@@ -18,6 +21,9 @@ auto defaultPlatform = platform::NewDefaultPlatform();
 typedef struct {
   Persistent<Context> ptr;
   Isolate* isolate;
+
+  std::map<std::string, Eternal<Module>> modules;
+  std::map<int, std::map<std::string, Eternal<Module>>> resolved;
 } m_ctx;
 
 typedef struct {
@@ -182,7 +188,7 @@ RtnValue Run(ContextPtr ptr, const char* source, const char* origin) {
       String::NewFromUtf8(isolate, source, NewStringType::kNormal)
           .ToLocalChecked();
 
-  RtnValue rtn = {nullptr};
+  RtnValue rtn = {nullptr, nullptr};
 
   ScriptOrigin script_origin(lOrigin);
   MaybeLocal<Script> script =
@@ -203,6 +209,101 @@ RtnValue Run(ContextPtr ptr, const char* source, const char* origin) {
 
   rtn.value = static_cast<ValuePtr>(val);
   return rtn;
+}
+
+MaybeLocal<Module> ResolveCallback(Local<Context> context,
+                                   Local<String> specifier,
+                                   Local<Module> referrer) {
+  Isolate* isolate = Isolate::GetCurrent();
+
+  return MaybeLocal<Module>();
+}
+
+int LoadModule(ContextPtr ptr,
+               char* source_s,
+               char* name_s,
+               int callback_index) {
+  m_ctx* ctx = static_cast<m_ctx*>(ptr);
+  Isolate* isolate = ctx->isolate;
+  Locker locker(isolate);
+  Isolate::Scope isolate_scope(isolate);
+  HandleScope handle_scope(isolate);
+  TryCatch try_catch(isolate);
+
+  Local<Context> context = ctx->ptr.Get(isolate);
+  Context::Scope context_scope(context);
+
+  Local<String> name =
+      String::NewFromUtf8(isolate, name_s, NewStringType::kNormal)
+          .ToLocalChecked();
+  Local<String> source_text =
+      String::NewFromUtf8(isolate, source_s, NewStringType::kNormal)
+          .ToLocalChecked();
+
+  Local<Integer> resource_line_offset = Integer::New(isolate, 0);
+  Local<Integer> resource_column_offset = Integer::New(isolate, 0);
+  Local<Boolean> resource_is_shared_cross_origin = True(isolate);
+  Local<Integer> script_id = Local<Integer>();
+  Local<Value> source_map_url = Local<Value>();
+  Local<Boolean> resource_is_opaque = False(isolate);
+  Local<Boolean> is_wasm = False(isolate);
+  Local<Boolean> is_module = True(isolate);
+  Local<PrimitiveArray> host_defined_options = Local<PrimitiveArray>();
+
+  ScriptOrigin origin(name, resource_line_offset, resource_column_offset,
+                      resource_is_shared_cross_origin, script_id,
+                      source_map_url, resource_is_opaque, is_wasm, is_module,
+                      host_defined_options);
+
+  ScriptCompiler::Source source(source_text, origin);
+  Local<Module> module;
+
+  if (!ScriptCompiler::CompileModule(isolate, &source).ToLocal(&module)) {
+    assert(try_catch.HasCaught());
+    auto err = ExceptionError(try_catch, isolate, context);
+    printf("%s\n", err.msg);
+    return 1;
+  }
+
+  std::map<std::string, Eternal<Module>> resolved;
+
+  for (int i = 0; i < module->GetModuleRequestsLength(); i++) {
+    Local<String> dependency = module->GetModuleRequest(i);
+    String::Utf8Value str(isolate, dependency);
+    char* dependencySpecifier = *str;
+
+    auto retval = ResolveModule(dependencySpecifier, name_s, callback_index);
+
+    if (retval.r1 != 0) {
+      return retval.r1;
+    }
+
+    if (ctx->modules.count(retval.r0) == 0) {
+      return 2;
+    }
+
+    resolved[dependencySpecifier] = ctx->modules[retval.r0];
+  }
+
+  Eternal<Module> persistentModule(isolate, module);
+  ctx->modules[name_s] = persistentModule;
+  ctx->resolved[module->GetIdentityHash()] = resolved;
+
+  Maybe<bool> ok = module->InstantiateModule(context, ResolveCallback);
+  if (!ok.FromMaybe(false)) {
+    return 2;
+  }
+
+  MaybeLocal<Value> result = module->Evaluate(context);
+
+  if (result.IsEmpty()) {
+    assert(try_catch.HasCaught());
+    auto err = ExceptionError(try_catch, isolate, context);
+    printf("%s\n", err.msg);
+    return 3;
+  }
+
+  return 0;
 }
 
 void DisposeContext(ContextPtr ptr) {

@@ -18,6 +18,7 @@ go_library(
     srcs = [
         "engine.go",
         "errors.go",
+        "modules.go",
         "v8engine.cc",
         "v8engine.go",
         "v8engine.h",
