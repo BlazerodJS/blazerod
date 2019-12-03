@@ -11,7 +11,7 @@ import (
 )
 
 var script = `
-import {test} from 'test';
+import {test} from './test';
 
 V8Engine.log("hello from JS");
 
@@ -35,9 +35,15 @@ var rootCmd = &cobra.Command{
 	DisableAutoGenTag: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		engine := v8engine.NewEngine()
-		ret := engine.LoadModule(testModule, "test", resolver.ResolveModule)
+		cwd, err := os.Getwd()
+		if err != nil {
+			panic(err)
+		}
+		r := resolver.NewResolver(engine, cwd)
+
+		ret := engine.LoadModule(testModule, "test", r.ResolveModule)
 		fmt.Println(ret)
-		ret = engine.LoadModule(script, "main.js", resolver.ResolveModule)
+		ret = engine.LoadModule(script, "main.js", r.ResolveModule)
 		fmt.Println(ret)
 	},
 }

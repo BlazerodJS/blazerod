@@ -5,4 +5,5 @@ go_library(
     srcs = ["resolver.go"],
     importpath = "github.com/BlazerodJS/blazerod/pkg/resolver",
     visibility = ["//visibility:public"],
+    deps = ["//pkg/v8engine:go_default_library"],
 )
