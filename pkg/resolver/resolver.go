@@ -69,7 +69,7 @@ func (r *Resolver) ResolveModule(specifier, referrer string) (string, int) {
 	if path != "" {
 		resolver := r
 		resolver.basedir = filepath.Dir(path)
-		fmt.Printf("Loading %s, %s\n", path, code)
+		fmt.Printf("Loading %s\n", path)
 		if ret := r.engine.LoadModule(string(code), path, resolver.ResolveModule); ret != 0 {
 			return "", 1
 		}

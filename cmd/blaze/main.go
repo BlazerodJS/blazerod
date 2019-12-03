@@ -41,6 +41,8 @@ var rootCmd = &cobra.Command{
 		}
 		r := resolver.NewResolver(engine, cwd)
 
+		_, _ = engine.Run("var global = {};", "global")
+
 		ret := engine.LoadModule(testModule, "test", r.ResolveModule)
 		fmt.Println(ret)
 		ret = engine.LoadModule(script, "main.js", r.ResolveModule)
