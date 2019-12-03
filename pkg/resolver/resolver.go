@@ -2,58 +2,24 @@ package resolver
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	"github.com/BlazerodJS/blazerod/pkg/v8engine"
 )
 
-func resolveByFile(specifier, referrer string) ([]byte, string) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return nil, ""
-	}
-
-	path := specifier
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(dir, path)
-	}
-
-	if filepath.Ext(path) == "" {
-		_, err = os.Stat(path + ".js")
-		switch {
-		case os.IsNotExist(err):
-			path = filepath.Join(path, "index.js")
-		case err != nil:
-			return nil, ""
-		default:
-			path = path + ".js"
-		}
-	}
-
-	if _, err := os.Stat(path); err != nil {
-		return nil, ""
-	}
-	fmt.Printf("Resolving with %s\n", path)
-	code, err := ioutil.ReadFile(path)
-	if err != nil {
-		panic(err)
-	}
-	return code, path
-}
-
 // Resolver implements module resolution (stdlib, file, NPM)
 type Resolver struct {
-	engine  *v8engine.Engine
-	basedir string
+	engine          *v8engine.Engine
+	basedir         string
+	originalBasedir string
 }
 
 // NewResolver creates a new Resolver
 func NewResolver(engine *v8engine.Engine, basedir string) *Resolver {
 	return &Resolver{
-		engine:  engine,
-		basedir: basedir,
+		engine:          engine,
+		basedir:         basedir,
+		originalBasedir: basedir,
 	}
 }
 
@@ -65,6 +31,11 @@ func (r *Resolver) ResolveModule(specifier, referrer string) (string, int) {
 	}
 
 	code, path := resolveByFile(specifier, referrer)
+
+	if code == nil {
+		n := &NpmResolver{r.originalBasedir}
+		code, path = n.Resolve(specifier, referrer)
+	}
 
 	if path != "" {
 		resolver := r

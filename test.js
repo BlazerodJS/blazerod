@@ -1,3 +1,3 @@
-import value from './value'
+import {test as t} from '@test/index.jss'
 
-export const test = value
+export const test = t
