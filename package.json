@@ -6,8 +6,24 @@
     "watch": "ibazel build //..."
   },
   "devDependencies": {
+    "@babel/core": "^7.7.4",
+    "@babel/preset-env": "^7.7.4",
+    "@babel/preset-typescript": "^7.7.4",
     "@bazel/bazel": "^1.2.0",
     "@bazel/ibazel": "^0.10.3",
-    "prettier": "^1.19.1"
+    "@bazel/rollup": "^0.42.1",
+    "@bazel/typescript": "^0.42.1",
+    "prettier": "^1.19.1",
+    "rollup": "^1.27.8",
+    "rollup-plugin-babel": "^4.3.3",
+    "rollup-plugin-node-resolve": "^5.2.0",
+    "typescript": "^3.7.2"
+  },
+  "prettier": {
+    "bracketSpacing": false,
+    "printWidth": 120,
+    "semi": false,
+    "singleQuote": true,
+    "trailingComma": "all"
   }
 }
