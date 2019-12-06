@@ -1,6 +1,0 @@
-_bad_scm
-.build
-.cipd
-.gclient_entries
-darwin-x86_64
-linux-x86_64
