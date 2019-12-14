@@ -213,7 +213,8 @@ MaybeLocal<Module> ResolveCallback(Local<Context> context,
     return MaybeLocal<Module>();
   }
 
-  std::map<std::string, Eternal<Module>> localResolve = ctx->resolved[referrer->GetIdentityHash()];
+  std::map<std::string, Eternal<Module>> localResolve =
+      ctx->resolved[referrer->GetIdentityHash()];
   if (localResolve.count(moduleName) == 0) {
     return MaybeLocal<Module>();
   }
