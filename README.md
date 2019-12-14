@@ -2,7 +2,7 @@
 
 ![Status: Pre-Alpha](https://badgen.net/badge/status/pre-alpha/red)
 
-> A Blazing-fast JavaScript Runtime
+> A Blazing-fast, batteries-included JavaScript Runtime
 
 Blazerod provides a JavaScript runtime, powered by V8 and Go.
 
