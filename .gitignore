@@ -3,5 +3,7 @@
 /blazerod
 
 *.log
+.env
 .vscode
 node_modules
+tmp
