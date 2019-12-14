@@ -1,23 +1,15 @@
 {
   "private": true,
   "scripts": {
-    "blaze": "bazel run //cmd/blaze:blaze",
-    "build": "bazel build //...",
-    "watch": "ibazel build //..."
+    "build": "rollup -c",
+    "watch": "rollup -c -w"
   },
   "devDependencies": {
-    "@babel/core": "^7.7.4",
-    "@babel/preset-env": "^7.7.4",
-    "@babel/preset-typescript": "^7.7.4",
-    "@bazel/bazel": "^1.2.0",
-    "@bazel/ibazel": "^0.10.3",
-    "@bazel/rollup": "^0.42.1",
-    "@bazel/typescript": "^0.42.1",
+    "@wessberg/rollup-plugin-ts": "^1.1.83",
     "prettier": "^1.19.1",
-    "rollup": "^1.27.8",
-    "rollup-plugin-babel": "^4.3.3",
+    "rollup": "^1.27.12",
     "rollup-plugin-node-resolve": "^5.2.0",
-    "typescript": "^3.7.2"
+    "typescript": "^3.7.3"
   },
   "prettier": {
     "bracketSpacing": false,
