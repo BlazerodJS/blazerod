@@ -11,16 +11,17 @@ import (
 )
 
 var script = `
-import {test} from './test';
+function uintToString(data) {
+	return String.fromCharCode.apply(null, new Uint8Array(data))
+}
+
+V8Engine.cb((msg) => {
+	V8Engine.log("Got a message from Go!");
+	V8Engine.log(msg);
+	V8Engine.log(uintToString(msg));
+});
 
 V8Engine.log("hello from JS");
-
-V8Engine.log(test);
-`
-
-var testModule = `
-export const test = 123;
-export const abc = 'def';
 `
 
 func resolveModule(moduleName, referrerName string) (string, int) {
@@ -43,10 +44,13 @@ var rootCmd = &cobra.Command{
 
 		_, _ = engine.Run("var global = {};", "global")
 
-		ret := engine.LoadModule(testModule, "test", r.ResolveModule)
+		ret := engine.LoadModule(script, "main.js", r.ResolveModule)
 		fmt.Println(ret)
-		ret = engine.LoadModule(script, "main.js", r.ResolveModule)
-		fmt.Println(ret)
+
+		err = engine.Send([]byte("hello from Go"))
+		if err != nil {
+			panic(err)
+		}
 	},
 }
 

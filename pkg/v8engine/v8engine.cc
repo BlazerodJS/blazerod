@@ -5,6 +5,7 @@
 #include "libplatform/libplatform.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <cstdlib>
 #include <cstring>
 #include <map>
@@ -21,6 +22,8 @@ auto defaultPlatform = platform::NewDefaultPlatform();
 typedef struct {
   Persistent<Context> ptr;
   Isolate* isolate;
+
+  Persistent<Function> cb;
 
   std::map<std::string, Eternal<Module>> modules;
   std::map<int, std::map<std::string, Eternal<Module>>> resolved;
@@ -74,6 +77,21 @@ void Print(const FunctionCallbackInfo<Value>& args) {
 
 void Log(const FunctionCallbackInfo<Value>& args) {
   Fprint(stderr, args);
+}
+
+void cb(const FunctionCallbackInfo<Value>& args) {
+  Isolate* isolate = args.GetIsolate();
+  m_ctx* ctx = (m_ctx*)isolate->GetData(0);
+  assert(ctx->isolate == isolate);
+
+  HandleScope handle_scope(isolate);
+  Local<Context> context = ctx->ptr.Get(isolate);
+
+  Local<Value> v = args[0];
+  assert(v->IsFunction());
+  Local<Function> func = Local<Function>::Cast(v);
+
+  ctx->cb.Reset(isolate, func);
 }
 
 // Errors
@@ -149,6 +167,7 @@ ContextPtr NewContext() {
 
   v8engine->Set(isolate, "print", FunctionTemplate::New(isolate, Print));
   v8engine->Set(isolate, "log", FunctionTemplate::New(isolate, Log));
+  v8engine->Set(isolate, "cb", FunctionTemplate::New(isolate, cb));
 
   m_ctx* ctx = new m_ctx;
   ctx->ptr.Reset(isolate, Context::New(isolate, NULL, global));
@@ -366,4 +385,49 @@ void DisposeValue(ValuePtr ptr) {
 
 const char* Version() {
   return V8::GetVersion();
+}
+
+// Send
+
+int Send(ContextPtr ptr, size_t length, void* data) {
+  m_ctx* ctx = static_cast<m_ctx*>(ptr);
+  Isolate* isolate = ctx->isolate;
+  Locker locker(isolate);
+  Isolate::Scope isolate_scope(isolate);
+  HandleScope handle_scope(isolate);
+  TryCatch try_catch(isolate);
+
+  Local<Context> context = ctx->ptr.Get(isolate);
+  Context::Scope context_scope(context);
+
+  Local<Function> cb = Local<Function>::New(isolate, ctx->cb);
+  if (cb.IsEmpty()) {
+    return 2;
+  }
+
+  Local<Value> args[1];
+
+  auto callback = [](void* data, size_t length, void* deleter_data) {
+    if (deleter_data == nullptr) {
+      return;
+    }
+
+    static_cast<ArrayBuffer::Allocator*>(deleter_data)->Free(data, length);
+  };
+  std::unique_ptr<BackingStore> backing = ArrayBuffer::NewBackingStore(
+      data, length, callback, isolate->GetArrayBufferAllocator());
+  args[0] = ArrayBuffer::New(isolate, std::move(backing));
+  assert(!args[0].IsEmpty());
+  assert(!try_catch.HasCaught());
+
+  auto ret = cb->Call(context, context->Global(), 1, args);
+
+  if (try_catch.HasCaught()) {
+    auto err = ExceptionError(try_catch, isolate, context);
+    printf("%s\n", err.msg);
+    printf("%s\n", err.stack);
+    return 3;
+  }
+
+  return 0;
 }

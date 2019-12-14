@@ -5,6 +5,7 @@ package v8engine
 import "C"
 
 import (
+	"fmt"
 	"runtime"
 	"sync"
 	"unsafe"
@@ -67,6 +68,17 @@ func (e *Engine) LoadModule(source string, origin string, resolve ModuleResolver
 	resolverTableLock.Unlock()
 
 	return int(rtn)
+}
+
+// Send sends bytes to V8
+func (e *Engine) Send(msg []byte) error {
+	msgPointer := C.CBytes(msg)
+
+	code := C.Send(e.contextPtr, C.size_t(len(msg)), msgPointer)
+	if code != 0 {
+		return fmt.Errorf("expected 0, got %d", code)
+	}
+	return nil
 }
 
 func (e *Engine) finalizer() {

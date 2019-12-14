@@ -4,6 +4,8 @@
 extern "C" {
 #endif
 
+#include <stdlib.h>
+
 typedef void* ContextPtr;
 typedef void* IsolatePtr;
 typedef void* ValuePtr;
@@ -37,6 +39,9 @@ extern void DisposeValue(ValuePtr value);
 
 // V8 version
 const char* Version();
+
+// Send
+int Send(ContextPtr context, size_t length, void* data);
 
 #ifdef __cplusplus
 }
