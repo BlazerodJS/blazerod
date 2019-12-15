@@ -2,39 +2,29 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/BlazerodJS/blazerod/pkg/resolver"
 	"github.com/BlazerodJS/blazerod/pkg/v8engine"
 	"github.com/BlazerodJS/blazerod/pkg/version"
-	"github.com/spf13/cobra"
 )
 
-var script = `
-function uintToString(data) {
-	return String.fromCharCode.apply(null, new Uint8Array(data))
-}
+func main() {
+	first := os.Args[1]
 
-V8Engine.cb((msg) => {
-	V8Engine.log("Got a message from Go!");
-	V8Engine.log(msg);
-	V8Engine.log(uintToString(msg));
-});
+	switch first {
+	case "run":
+		if len(os.Args) != 3 {
+			fmt.Println("Usage: blaze run script.js")
+			os.Exit(1)
+		}
 
-V8Engine.log("hello from JS");
-`
+		script, err := ioutil.ReadFile(os.Args[2])
+		if err != nil {
+			panic(err)
+		}
 
-func resolveModule(moduleName, referrerName string) (string, int) {
-	fmt.Println("requested", moduleName, referrerName)
-	return "", 0
-}
-
-var rootCmd = &cobra.Command{
-	Use:               "blaze",
-	Short:             "Blazerod JavaScript Runtime",
-	Version:           version.Version(),
-	DisableAutoGenTag: true,
-	Run: func(cmd *cobra.Command, args []string) {
 		engine := v8engine.NewEngine()
 		cwd, err := os.Getwd()
 		if err != nil {
@@ -44,28 +34,15 @@ var rootCmd = &cobra.Command{
 
 		_, _ = engine.Run("var global = {};", "global")
 
-		ret := engine.LoadModule(script, "main.js", r.ResolveModule)
+		ret := engine.LoadModule(string(script), "main.js", r.ResolveModule)
 		fmt.Println(ret)
 
 		err = engine.Send([]byte("hello from Go"))
 		if err != nil {
 			panic(err)
 		}
-	},
-}
 
-// Execute adds all child commands to the root command
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	case "version":
+		fmt.Println(version.Version())
 	}
-}
-
-func init() {
-	rootCmd.SetVersionTemplate("{{.Version}}")
-}
-
-func main() {
-	Execute()
 }

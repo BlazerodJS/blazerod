@@ -1,5 +1,7 @@
 package v8engine
 
+import "C"
+
 import (
 	"fmt"
 	"io"
